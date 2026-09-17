@@ -20,7 +20,8 @@ import {
   type AdminRow,
 } from "@/lib/admin-data";
 
-const AUTH_URL = "https://app.basezeroum.com.br/auth";
+// Login interno do painel (rota /auth). Sessões existentes entram direto.
+const AUTH_URL = "/auth";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -196,8 +197,9 @@ function AdminPage() {
         </div>
         <h1 className="mt-5 text-lg font-bold">Acesso restrito a administradores</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          A conta {sessao.email ?? "atual"} não possui permissão de administrador no painel
-          Base 01.
+          A conta {sessao.email ?? "atual"} autenticou com sucesso, mas não possui permissão
+          de administrador no painel Base 01. Solicite a liberação ao administrador master da
+          plataforma.
         </p>
         <Button className="mt-6 rounded-xl" onClick={() => void sair()}>
           Desconectar
