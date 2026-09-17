@@ -20,7 +20,8 @@ import {
   type AdminRow,
 } from "@/lib/admin-data";
 
-const AUTH_URL = "https://app.basezeroum.com.br/auth";
+// Login interno do painel (rota /auth). Sessões existentes entram direto.
+const AUTH_URL = "/auth";
 
 export const Route = createFileRoute("/")({
   ssr: false,
