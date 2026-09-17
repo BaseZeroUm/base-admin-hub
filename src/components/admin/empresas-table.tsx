@@ -201,7 +201,7 @@ export function EmpresasTable({
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
-                          variant="destructive"
+                          className="text-destructive focus:text-destructive"
                           onSelect={() => onDesativar(row)}
                         >
                           <UserX className="size-4" /> Desativar (LGPD)
