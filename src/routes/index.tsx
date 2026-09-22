@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Database, Loader2, RefreshCw, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,20 @@ import { KpiCards } from "@/components/admin/kpi-cards";
 import { EmpresasTable } from "@/components/admin/empresas-table";
 import { TrialDialog } from "@/components/admin/trial-dialog";
 import { LgpdDialog } from "@/components/admin/lgpd-dialog";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { PlanoDialog } from "@/components/admin/plano-dialog";
 import {
-  alterarPlano,
   desativarUsuario,
   estenderTrial,
   fetchAdminDashboard,
+  gerenciarPlano,
   reativarUsuario,
   type AdminRow,
+  type Modalidade,
+  type Plano,
 } from "@/lib/admin-data";
+import { useSessaoAdmin, sairAdmin } from "@/hooks/use-sessao-admin";
 
-// Login interno do painel (rota /auth). Sessões existentes entram direto.
-const AUTH_URL = "/auth";
-
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/")(  {
   ssr: false,
   head: () => ({
     meta: [
@@ -44,60 +44,6 @@ export const Route = createFileRoute("/")({
   component: AdminPage,
 });
 
-type Sessao =
-  | { estado: "carregando" }
-  | { estado: "sem_banco" }
-  | { estado: "sem_admin"; email: string | null }
-  | { estado: "admin"; email: string | null };
-
-function useSessaoAdmin() {
-  const [sessao, setSessao] = useState<Sessao>({ estado: "carregando" });
-
-  useEffect(() => {
-    let cancelado = false;
-
-    async function verificar() {
-      if (!isSupabaseConfigured) {
-        setSessao({ estado: "sem_banco" });
-        return;
-      }
-      const supabase = getSupabase();
-      if (!supabase) return;
-
-      const { data, error } = await supabase.auth.getUser();
-      if (cancelado) return;
-      if (error || !data.user) {
-        window.location.href = AUTH_URL;
-        return;
-      }
-
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin");
-
-      if (cancelado) return;
-      const email = data.user.email ?? null;
-      setSessao(
-        roles && roles.length > 0 ? { estado: "admin", email } : { estado: "sem_admin", email },
-      );
-    }
-
-    void verificar();
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  return sessao;
-}
-
-async function sair() {
-  await getSupabase()?.auth.signOut();
-  window.location.href = AUTH_URL;
-}
-
 function TelaCentral({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
@@ -113,6 +59,7 @@ function AdminPage() {
   const queryClient = useQueryClient();
   const [trialRow, setTrialRow] = useState<AdminRow | null>(null);
   const [lgpdRow, setLgpdRow] = useState<AdminRow | null>(null);
+  const [planoRow, setPlanoRow] = useState<AdminRow | null>(null);
 
   const habilitado = sessao.estado === "admin";
   const dashboard = useQuery({
@@ -155,15 +102,34 @@ function AdminPage() {
   });
 
   const planoMutation = useMutation({
-    mutationFn: ({ empresaId, plano }: { empresaId: string; plano: string }) =>
-      alterarPlano(empresaId, plano),
+    mutationFn: ({
+      empresaId,
+      plano,
+      modalidade,
+      dataCustom,
+    }: {
+      empresaId: string;
+      plano: Plano;
+      modalidade: Modalidade;
+      dataCustom?: Date;
+    }) => gerenciarPlano(empresaId, plano, modalidade, dataCustom),
     onSuccess: (_d, vars) => {
-      toast.success(`Plano alterado para ${vars.plano}.`);
+      const labels: Record<Modalidade, string> = {
+        trial: "trial",
+        mensal: "mensal",
+        anual: "anual",
+        permanente: "permanente",
+      };
+      toast.success(
+        `Plano ${vars.plano} (${labels[vars.modalidade]}) configurado com sucesso.`,
+      );
+      setPlanoRow(null);
       void invalidar();
     },
     onError: (e: Error) => toast.error(`Não foi possível alterar o plano: ${e.message}`),
   });
 
+  // ── Estados de guarda ──────────────────────────────────────────────────────
   if (sessao.estado === "carregando") {
     return (
       <TelaCentral>
@@ -201,15 +167,16 @@ function AdminPage() {
           de administrador no painel Base 01. Solicite a liberação ao administrador master da
           plataforma.
         </p>
-        <Button className="mt-6 rounded-xl" onClick={() => void sair()}>
+        <Button className="mt-6 rounded-xl" onClick={() => void sairAdmin()}>
           Desconectar
         </Button>
       </TelaCentral>
     );
   }
 
+  // ── Conteúdo principal ─────────────────────────────────────────────────────
   return (
-    <AdminShell email={sessao.email} onSignOut={() => void sair()}>
+    <AdminShell email={sessao.email} onSignOut={() => void sairAdmin()}>
       <div className="mx-auto max-w-[1400px] space-y-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -254,11 +221,9 @@ function AdminPage() {
               rows={dashboard.data.rows}
               categorias={dashboard.data.categorias}
               onEstenderTrial={setTrialRow}
+              onGerenciarPlano={setPlanoRow}
               onDesativar={setLgpdRow}
               onReativar={(row) => reativarMutation.mutate(row.profile.id)}
-              onAlterarPlano={(row, plano) =>
-                row.empresa && planoMutation.mutate({ empresaId: row.empresa.id, plano })
-              }
             />
           </>
         )}
@@ -279,6 +244,20 @@ function AdminPage() {
         onClose={() => setLgpdRow(null)}
         onConfirm={(motivo) =>
           lgpdRow && lgpdMutation.mutate({ profileId: lgpdRow.profile.id, motivo })
+        }
+      />
+      <PlanoDialog
+        row={planoRow}
+        saving={planoMutation.isPending}
+        onClose={() => setPlanoRow(null)}
+        onConfirm={(plano, modalidade, dataCustom) =>
+          planoRow?.empresa &&
+          planoMutation.mutate({
+            empresaId: planoRow.empresa.id,
+            plano,
+            modalidade,
+            dataCustom,
+          })
         }
       />
     </AdminShell>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarPlus, MoreHorizontal, RotateCcw, Search, UserX } from "lucide-react";
+import { CalendarPlus, MoreHorizontal, RotateCcw, Search, Settings2, UserX } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,17 +23,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PlanoBadge, SegmentoBadge, StatusBadge } from "./badges";
+import { PlanoBadge, SegmentoBadge, StatusBadge, VencimentoBadge } from "./badges";
 import {
   formatarCnpj,
   formatarData,
   formatarTempoMedio,
-  PLANOS,
   type AdminRow,
 } from "@/lib/admin-data";
 
@@ -41,16 +38,16 @@ export function EmpresasTable({
   rows,
   categorias,
   onEstenderTrial,
+  onGerenciarPlano,
   onDesativar,
   onReativar,
-  onAlterarPlano,
 }: {
   rows: AdminRow[];
   categorias: string[];
   onEstenderTrial: (row: AdminRow) => void;
+  onGerenciarPlano: (row: AdminRow) => void;
   onDesativar: (row: AdminRow) => void;
   onReativar: (row: AdminRow) => void;
-  onAlterarPlano: (row: AdminRow, plano: string) => void;
 }) {
   const [busca, setBusca] = useState("");
   const [segmento, setSegmento] = useState("todos");
@@ -79,6 +76,7 @@ export function EmpresasTable({
 
   return (
     <Card className="shadow-card gap-0 overflow-hidden rounded-3xl border-border p-0">
+      {/* Filtros */}
       <div className="flex flex-col gap-3 border-b border-border p-5 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -117,6 +115,7 @@ export function EmpresasTable({
         </div>
       </div>
 
+      {/* Tabela */}
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -124,7 +123,8 @@ export function EmpresasTable({
               <TableHead>Usuário / Responsável</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Segmento</TableHead>
-              <TableHead>Plano &amp; Trial</TableHead>
+              <TableHead>Plano</TableHead>
+              <TableHead>Vencimento</TableHead>
               <TableHead>Tempo médio diário</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -133,7 +133,7 @@ export function EmpresasTable({
           <TableBody>
             {filtradas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-14 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-14 text-center text-muted-foreground">
                   Nenhum registro encontrado com os filtros atuais.
                 </TableCell>
               </TableRow>
@@ -148,6 +148,7 @@ export function EmpresasTable({
                     {row.profile.email ?? "sem e-mail"}
                   </p>
                 </TableCell>
+
                 <TableCell>
                   <p className="font-medium text-foreground">
                     {row.empresa?.razao_social ?? row.empresa?.nome_fantasia ?? "—"}
@@ -156,29 +157,34 @@ export function EmpresasTable({
                     {formatarCnpj(row.empresa?.cnpj ?? null)}
                   </p>
                 </TableCell>
+
                 <TableCell>
                   <SegmentoBadge categoria={row.empresa?.categoria ?? null} />
                 </TableCell>
+
                 <TableCell>
                   <div className="space-y-1">
                     <PlanoBadge plano={row.empresa?.plano ?? null} />
-                    <p className="text-xs text-muted-foreground">
-                      {row.empresa?.trial_ate
-                        ? `até ${formatarData(row.empresa.trial_ate)} · ${
-                            (row.diasRestantesTrial ?? 0) >= 0
-                              ? `${row.diasRestantesTrial} dias restantes`
-                              : `expirado há ${Math.abs(row.diasRestantesTrial ?? 0)} dias`
-                          }`
-                        : "sem trial"}
-                    </p>
+                    {row.empresa?.trial_ate && (
+                      <p className="text-xs text-muted-foreground">
+                        até {formatarData(row.empresa.trial_ate)}
+                      </p>
+                    )}
                   </div>
                 </TableCell>
+
+                <TableCell>
+                  <VencimentoBadge empresa={row.empresa} />
+                </TableCell>
+
                 <TableCell className="font-medium text-foreground">
                   {formatarTempoMedio(row.minutosMediaDia)}
                 </TableCell>
+
                 <TableCell>
                   <StatusBadge status={row.status} />
                 </TableCell>
+
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -189,12 +195,23 @@ export function EmpresasTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 rounded-2xl">
                       <DropdownMenuLabel>Gestão da conta</DropdownMenuLabel>
+
+                      <DropdownMenuItem
+                        disabled={!row.empresa}
+                        onSelect={() => onGerenciarPlano(row)}
+                      >
+                        <Settings2 className="size-4" /> Gerenciar plano
+                      </DropdownMenuItem>
+
                       <DropdownMenuItem
                         disabled={!row.empresa}
                         onSelect={() => onEstenderTrial(row)}
                       >
-                        <CalendarPlus className="size-4" /> Estender teste grátis
+                        <CalendarPlus className="size-4" /> Estender trial
                       </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+
                       {row.profile.ativo === false ? (
                         <DropdownMenuItem onSelect={() => onReativar(row)}>
                           <RotateCcw className="size-4" /> Reativar usuário
@@ -207,18 +224,6 @@ export function EmpresasTable({
                           <UserX className="size-4" /> Desativar (LGPD)
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel>Alterar plano</DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        value={(row.empresa?.plano ?? "").toLowerCase()}
-                        onValueChange={(v) => onAlterarPlano(row, v)}
-                      >
-                        {PLANOS.map((p) => (
-                          <DropdownMenuRadioItem key={p} value={p} disabled={!row.empresa}>
-                            {p.charAt(0).toUpperCase() + p.slice(1)}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

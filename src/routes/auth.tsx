@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { LogoIcon, LogoFull } from "@/components/Logo";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -30,16 +31,16 @@ export const Route = createFileRoute("/auth")({
 
 type Modo = "entrar" | "criar";
 
-function Marca() {
+function Marca({ full = false }: { full?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="bg-brand-gradient flex size-10 items-center justify-center rounded-2xl font-bold text-primary-foreground shadow-brand">
-        01
-      </div>
-      <div>
-        <p className="text-sm font-bold tracking-wide">Base 01</p>
-        <p className="text-xs text-sidebar-foreground/60">Painel Master</p>
-      </div>
+      {full ? <LogoFull /> : <LogoIcon className="h-10 w-10" />}
+      {!full && (
+        <div>
+          <p className="text-sm font-bold tracking-wide">Base 01</p>
+          <p className="text-xs text-sidebar-foreground/60">Painel Master</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -108,7 +109,7 @@ function AuthPage() {
       {/* Painel institucional */}
       <aside className="bg-sidebar text-sidebar-foreground relative hidden flex-col justify-between overflow-hidden p-10 lg:flex">
         <div className="bg-brand-gradient pointer-events-none absolute -top-32 -right-32 size-96 rounded-full opacity-20 blur-3xl" />
-        <Marca />
+        <Marca full />
         <div className="relative space-y-5">
           <h1 className="text-3xl font-bold leading-tight">
             Gestão de empresas &amp; licenças <span className="text-brand-gradient">em um só lugar</span>

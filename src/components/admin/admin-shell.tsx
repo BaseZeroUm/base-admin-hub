@@ -1,21 +1,72 @@
-import { useState, type ReactNode } from "react";
-import {
-  Building2,
-  ChevronLeft,
-  LayoutDashboard,
-  LogOut,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { LayoutDashboard, LogOut, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LogoFull, LogoIcon } from "@/components/Logo";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
-const NAV = [
-  { label: "Visão geral", icon: LayoutDashboard, active: true },
-  { label: "Empresas", icon: Building2, active: false },
-  { label: "Usuários", icon: Users, active: false },
-  { label: "Governança LGPD", icon: ShieldCheck, active: false },
+const NAV_GRUPOS = [
+  {
+    label: "Visão geral",
+    itens: [{ label: "Painel", url: "/", icon: LayoutDashboard }],
+  },
+  {
+    label: "Gestão",
+    itens: [{ label: "Usuários", url: "/usuarios", icon: Users }],
+  },
 ];
+
+function AppSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarContent>
+        <div className="flex h-16 items-center px-3">
+          {collapsed ? <LogoIcon className="h-8 w-8" /> : <LogoFull />}
+        </div>
+
+        {NAV_GRUPOS.map((grupo) => (
+          <SidebarGroup key={grupo.label}>
+            <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {grupo.itens.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.url}
+                      title={item.label}
+                    >
+                      <Link to={item.url} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.label}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+    </Sidebar>
+  );
+}
 
 export function AdminShell({
   children,
@@ -26,77 +77,35 @@ export function AdminShell({
   email?: string | null;
   onSignOut?: () => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-
   return (
-    <div className="flex min-h-screen bg-muted/40">
-      <aside
-        className={cn(
-          "sticky top-0 flex h-screen flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-300",
-          collapsed ? "w-[76px]" : "w-[268px]",
-        )}
-      >
-        <div className="flex items-center gap-3 px-5 py-6">
-          <div className="bg-brand-gradient flex size-10 shrink-0 items-center justify-center rounded-2xl text-base font-extrabold text-sidebar-primary-foreground">
-            01
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold tracking-tight">Base 01 Admin</p>
-              <p className="truncate text-xs text-sidebar-foreground/60">Painel Master</p>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-muted/30">
+        <AppSidebar />
+        <div className="flex flex-1 flex-col">
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 border-b bg-background/85 px-4 backdrop-blur">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger />
+              <div className="hidden sm:block">
+                <div className="text-sm font-semibold leading-tight">Base 01 Admin</div>
+                <div className="text-xs text-muted-foreground">Painel Master</div>
+              </div>
             </div>
-          )}
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-1 px-3">
-          {NAV.map(({ label, icon: Icon, active }) => (
-            <button
-              key={label}
-              type="button"
-              title={label}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+            <div className="flex items-center gap-2">
+              {email && (
+                <span className="hidden text-xs text-muted-foreground lg:block">
+                  {email}
+                </span>
               )}
-            >
-              <Icon className="size-[18px] shrink-0" />
-              {!collapsed && <span className="truncate">{label}</span>}
-            </button>
-          ))}
-        </nav>
-
-        <div className="space-y-2 border-t border-sidebar-border p-3">
-          {!collapsed && email && (
-            <p className="truncate px-2 text-xs text-sidebar-foreground/60">{email}</p>
-          )}
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={onSignOut}
-              title="Sair"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-            >
-              <LogOut className="size-[18px] shrink-0" />
-              {!collapsed && "Sair"}
-            </button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed((v) => !v)}
-            className="w-full justify-start gap-3 rounded-xl px-3 text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-          >
-            <ChevronLeft
-              className={cn("size-[18px] transition-transform", collapsed && "rotate-180")}
-            />
-            {!collapsed && "Recolher"}
-          </Button>
+              {onSignOut && (
+                <Button variant="ghost" size="sm" onClick={onSignOut}>
+                  <LogOut className="h-4 w-4" /> Sair
+                </Button>
+              )}
+            </div>
+          </header>
+          <main className="flex-1 p-4 md:p-8">{children}</main>
         </div>
-      </aside>
-
-      <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">{children}</main>
-    </div>
+      </div>
+    </SidebarProvider>
   );
 }

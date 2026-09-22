@@ -1,4 +1,4 @@
-import { AlarmClock, Building2, Clock, Sparkles } from "lucide-react";
+import { AlarmClock, BellRing, Clock, Building2, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { formatarTempoMedio, type AdminDashboardData } from "@/lib/admin-data";
@@ -33,7 +33,7 @@ function Kpi({
 
 export function KpiCards({ kpis }: { kpis: AdminDashboardData["kpis"] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <Kpi
         icon={Building2}
         label="Empresas ativas"
@@ -50,10 +50,21 @@ export function KpiCards({ kpis }: { kpis: AdminDashboardData["kpis"] }) {
       />
       <Kpi
         icon={AlarmClock}
-        label="Expirando em 7 dias"
+        label="Trials expirando (7 dias)"
         value={String(kpis.expirando7Dias)}
-        hint="Requer contato comercial"
+        hint="Requer contato comercial urgente"
         tone="bg-warning/15 text-warning-foreground"
+      />
+      <Kpi
+        icon={BellRing}
+        label="Assinaturas vencendo (30d)"
+        value={String(kpis.assinaturasVencendo30)}
+        hint="Renovações a confirmar no mês"
+        tone={
+          kpis.assinaturasVencendo30 > 0
+            ? "bg-warning/15 text-warning-foreground"
+            : "bg-success/10 text-success"
+        }
       />
       <Kpi
         icon={Clock}

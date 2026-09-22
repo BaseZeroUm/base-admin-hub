@@ -95,13 +95,15 @@
   --chart-3: oklch(0.6 0.09 260);
   --chart-4: oklch(0.78 0.145 76);
   --chart-5: oklch(0.62 0.11 300);
-  --sidebar: oklch(0.245 0.024 250);
-  --sidebar-foreground: oklch(0.92 0.008 240);
-  --sidebar-primary: oklch(0.74 0.106 235);
-  --sidebar-primary-foreground: oklch(0.19 0.03 245);
-  --sidebar-accent: oklch(0.305 0.028 245);
-  --sidebar-accent-foreground: oklch(0.97 0.005 240);
-  --sidebar-border: oklch(1 0 0 / 10%);
+
+  /* Sidebar clara padrão do primeiro código */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.34 0.02 250);
+  --sidebar-primary: oklch(0.66 0.115 236);
+  --sidebar-primary-foreground: oklch(0.995 0 0);
+  --sidebar-accent: oklch(0.955 0.018 210);
+  --sidebar-accent-foreground: oklch(0.3 0.04 235);
+  --sidebar-border: oklch(0.925 0.008 245);
   --sidebar-ring: oklch(0.72 0.106 235);
 
   --gradient-brand: linear-gradient(120deg, var(--brand-blue), var(--brand-mint));

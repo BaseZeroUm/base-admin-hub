@@ -35,6 +35,47 @@ export type AdminRow = {
 };
 
 export const PLANOS = ["trial", "starter", "pro", "enterprise"] as const;
+export type Plano = (typeof PLANOS)[number];
+export const MODALIDADES = ["trial", "mensal", "anual", "permanente"] as const;
+export type Modalidade = (typeof MODALIDADES)[number];
+
+export type StatusVencimento = "permanente" | "ok" | "alerta" | "critico" | "vencido" | "sem_plano";
+
+/** Classifica o estado de vencimento de uma empresa. */
+export function statusVencimento(empresa: Empresa | null): StatusVencimento {
+  if (!empresa) return "sem_plano";
+  if (empresa.assinatura_ativa && !empresa.trial_ate) return "permanente";
+  if (!empresa.trial_ate) return "sem_plano";
+  const dias = Math.round(
+    (new Date(empresa.trial_ate).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) /
+      86_400_000,
+  );
+  if (dias < 0) return "vencido";
+  if (dias <= 7) return "critico";
+  if (dias <= 30) return "alerta";
+  return "ok";
+}
+
+/** Calcula a data de vencimento baseado na modalidade escolhida. */
+export function calcularVencimento(modalidade: Modalidade, dataCustom?: Date): Date | null {
+  const hoje = new Date();
+  switch (modalidade) {
+    case "permanente":
+      return null;
+    case "mensal": {
+      const d = new Date(hoje);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    }
+    case "anual": {
+      const d = new Date(hoje);
+      d.setFullYear(d.getFullYear() + 1);
+      return d;
+    }
+    case "trial":
+      return dataCustom ?? new Date(hoje.getTime() + 7 * 86_400_000);
+  }
+}
 
 export const MOTIVOS_DESATIVACAO = [
   "Solicitação do titular (LGPD)",
@@ -80,6 +121,7 @@ export type AdminDashboardData = {
     empresasAtivas: number;
     emTrial: number;
     expirando7Dias: number;
+    assinaturasVencendo30: number;
     tempoMedioGeral: number | null;
   };
   categorias: string[];
@@ -142,6 +184,13 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     (e) => !e.assinatura_ativa && e.trial_ate != null && (diasAte(e.trial_ate) ?? -1) >= 0,
   );
 
+  // Assinaturas pagas com vencimento nos próximos 30 dias
+  const assinaturasVencendo30 = empresas.filter((e) => {
+    if (!e.assinatura_ativa || !e.trial_ate) return false;
+    const d = diasAte(e.trial_ate);
+    return d !== null && d >= 0 && d <= 30;
+  }).length;
+
   const medias = rows.map((r) => r.minutosMediaDia).filter((m): m is number => m != null);
 
   return {
@@ -150,6 +199,7 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
       empresasAtivas: empresas.filter((e) => e.ativa !== false).length,
       emTrial: emTrialEmpresas.length,
       expirando7Dias: emTrialEmpresas.filter((e) => (diasAte(e.trial_ate) ?? 99) <= 7).length,
+      assinaturasVencendo30,
       tempoMedioGeral: medias.length
         ? medias.reduce((a, b) => a + b, 0) / medias.length
         : null,
@@ -174,6 +224,30 @@ export async function alterarPlano(empresaId: string, plano: string) {
   const supabase = getSupabase();
   if (!supabase) throw new Error("Banco de dados não conectado");
   const { error } = await supabase.from("empresas").update({ plano }).eq("id", empresaId);
+  if (error) throw error;
+}
+
+/**
+ * Gerencia plano + modalidade de cobrança de uma empresa.
+ * Atualiza `plano`, `assinatura_ativa` e `trial_ate` numa única chamada.
+ */
+export async function gerenciarPlano(
+  empresaId: string,
+  plano: Plano,
+  modalidade: Modalidade,
+  dataCustom?: Date,
+) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("Banco de dados não conectado");
+  const vencimento = calcularVencimento(modalidade, dataCustom);
+  const { error } = await supabase
+    .from("empresas")
+    .update({
+      plano,
+      assinatura_ativa: modalidade !== "trial",
+      trial_ate: vencimento ? vencimento.toISOString() : null,
+    })
+    .eq("id", empresaId);
   if (error) throw error;
 }
 
