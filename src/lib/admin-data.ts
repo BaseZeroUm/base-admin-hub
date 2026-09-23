@@ -41,10 +41,19 @@ export type Modalidade = (typeof MODALIDADES)[number];
 
 export type StatusVencimento = "permanente" | "ok" | "alerta" | "critico" | "vencido" | "sem_plano";
 
+/** Verifica se uma empresa possui plano permanente ativo. */
+export function isPlanoPermanente(empresa: Empresa | null): boolean {
+  if (!empresa) return false;
+  if (!empresa.assinatura_ativa) return false;
+  if (!empresa.trial_ate) return true;
+  const ano = new Date(empresa.trial_ate).getFullYear();
+  return ano >= 2099;
+}
+
 /** Classifica o estado de vencimento de uma empresa. */
 export function statusVencimento(empresa: Empresa | null): StatusVencimento {
   if (!empresa) return "sem_plano";
-  if (empresa.assinatura_ativa && !empresa.trial_ate) return "permanente";
+  if (isPlanoPermanente(empresa)) return "permanente";
   if (!empresa.trial_ate) return "sem_plano";
   const dias = Math.round(
     (new Date(empresa.trial_ate).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) /
@@ -164,7 +173,8 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
 
   const rows: AdminRow[] = profiles.map((profile) => {
     const empresa = profile.empresa_id ? empresasById.get(profile.empresa_id) ?? null : null;
-    const dias = diasAte(empresa?.trial_ate ?? null);
+    const permanente = isPlanoPermanente(empresa);
+    const dias = permanente ? null : diasAte(empresa?.trial_ate ?? null);
     const trialExpirado =
       !empresa?.assinatura_ativa && empresa?.trial_ate != null && (dias ?? 0) < 0;
 
@@ -181,17 +191,25 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   });
 
   const emTrialEmpresas = empresas.filter(
-    (e) => !e.assinatura_ativa && e.trial_ate != null && (diasAte(e.trial_ate) ?? -1) >= 0,
+    (e) => !e.assinatura_ativa && e.trial_ate != null && !isPlanoPermanente(e) && (diasAte(e.trial_ate) ?? -1) >= 0,
   );
 
-  // Assinaturas pagas com vencimento nos próximos 30 dias
+  // Assinaturas pagas com vencimento nos próximos 30 dias (ignora permanentes)
   const assinaturasVencendo30 = empresas.filter((e) => {
-    if (!e.assinatura_ativa || !e.trial_ate) return false;
+    if (!e.assinatura_ativa || !e.trial_ate || isPlanoPermanente(e)) return false;
     const d = diasAte(e.trial_ate);
     return d !== null && d >= 0 && d <= 30;
   }).length;
 
   const medias = rows.map((r) => r.minutosMediaDia).filter((m): m is number => m != null);
+
+  // Segmentos conhecidos base + qualquer categoria existente no banco de dados
+  const categoriasSet = new Set<string>(["reciclagem", "adega"]);
+  for (const emp of empresas) {
+    if (emp.categoria && emp.categoria.trim()) {
+      categoriasSet.add(emp.categoria.trim().toLowerCase());
+    }
+  }
 
   return {
     rows,
@@ -204,9 +222,7 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
         ? medias.reduce((a, b) => a + b, 0) / medias.length
         : null,
     },
-    categorias: Array.from(
-      new Set(empresas.map((e) => e.categoria).filter((c): c is string => Boolean(c))),
-    ).sort(),
+    categorias: Array.from(categoriasSet).sort(),
   };
 }
 
@@ -228,8 +244,16 @@ export async function alterarPlano(empresaId: string, plano: string) {
 }
 
 /**
+ * Data sentinela no futuro para fallback caso a migration de drop not-null
+ * em trial_ate ainda não tenha sido aplicada no banco ativo.
+ */
+export const DATA_SENTINELA_PERMANENTE = "2099-12-31T23:59:59.999Z";
+
+/**
  * Gerencia plano + modalidade de cobrança de uma empresa.
  * Atualiza `plano`, `assinatura_ativa` e `trial_ate` numa única chamada.
+ * Caso a coluna trial_ate possua constraint NOT NULL ativa no DB remoto,
+ * aplica fallback transparente sem quebrar a operação.
  */
 export async function gerenciarPlano(
   empresaId: string,
@@ -240,13 +264,53 @@ export async function gerenciarPlano(
   const supabase = getSupabase();
   if (!supabase) throw new Error("Banco de dados não conectado");
   const vencimento = calcularVencimento(modalidade, dataCustom);
+  const assinaturaAtiva = modalidade !== "trial";
+  const trialAte = vencimento ? vencimento.toISOString() : null;
+
   const { error } = await supabase
     .from("empresas")
     .update({
       plano,
-      assinatura_ativa: modalidade !== "trial",
-      trial_ate: vencimento ? vencimento.toISOString() : null,
+      assinatura_ativa: assinaturaAtiva,
+      trial_ate: trialAte,
     })
+    .eq("id", empresaId);
+
+  if (error) {
+    // Fallback: se o banco rejeitar null em trial_ate por constraint not-null
+    const isNotNullViolation =
+      error.message?.includes("violates not-null constraint") ||
+      error.message?.includes("trial_ate") ||
+      error.code === "23502";
+
+    if (isNotNullViolation && modalidade === "permanente") {
+      const fallbackRes = await supabase
+        .from("empresas")
+        .update({
+          plano,
+          assinatura_ativa: true,
+          trial_ate: DATA_SENTINELA_PERMANENTE,
+        })
+        .eq("id", empresaId);
+
+      if (fallbackRes.error) throw fallbackRes.error;
+      return;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Altera o segmento (categoria) de uma empresa no banco de dados.
+ */
+export async function alterarSegmento(empresaId: string, categoria: string) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("Banco de dados não conectado");
+  const catFormatada = categoria.trim().toLowerCase();
+  const { error } = await supabase
+    .from("empresas")
+    .update({ categoria: catFormatada })
     .eq("id", empresaId);
   if (error) throw error;
 }

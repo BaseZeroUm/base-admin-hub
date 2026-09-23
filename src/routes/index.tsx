@@ -1,29 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Database, Loader2, RefreshCw, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { KpiCards } from "@/components/admin/kpi-cards";
-import { EmpresasTable } from "@/components/admin/empresas-table";
-import { TrialDialog } from "@/components/admin/trial-dialog";
-import { LgpdDialog } from "@/components/admin/lgpd-dialog";
-import { PlanoDialog } from "@/components/admin/plano-dialog";
-import {
-  desativarUsuario,
-  estenderTrial,
-  fetchAdminDashboard,
-  gerenciarPlano,
-  reativarUsuario,
-  type AdminRow,
-  type Modalidade,
-  type Plano,
-} from "@/lib/admin-data";
+import { ClientsManagementTable } from "@/components/admin/clients-management-table";
+import { fetchAdminDashboard } from "@/lib/admin-data";
 import { useSessaoAdmin, sairAdmin } from "@/hooks/use-sessao-admin";
 
-export const Route = createFileRoute("/")(  {
+export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
@@ -57,9 +43,6 @@ function TelaCentral({ children }: { children: React.ReactNode }) {
 function AdminPage() {
   const sessao = useSessaoAdmin();
   const queryClient = useQueryClient();
-  const [trialRow, setTrialRow] = useState<AdminRow | null>(null);
-  const [lgpdRow, setLgpdRow] = useState<AdminRow | null>(null);
-  const [planoRow, setPlanoRow] = useState<AdminRow | null>(null);
 
   const habilitado = sessao.estado === "admin";
   const dashboard = useQuery({
@@ -69,65 +52,6 @@ function AdminPage() {
   });
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-
-  const trialMutation = useMutation({
-    mutationFn: ({ empresaId, data }: { empresaId: string; data: Date }) =>
-      estenderTrial(empresaId, data),
-    onSuccess: (_d, vars) => {
-      toast.success(`Trial estendido até ${vars.data.toLocaleDateString("pt-BR")}`);
-      setTrialRow(null);
-      void invalidar();
-    },
-    onError: (e: Error) => toast.error(`Não foi possível estender o trial: ${e.message}`),
-  });
-
-  const lgpdMutation = useMutation({
-    mutationFn: ({ profileId, motivo }: { profileId: string; motivo: string }) =>
-      desativarUsuario(profileId, motivo),
-    onSuccess: () => {
-      toast.success("Conta desativada. Histórico retido por 5 anos (LGPD).");
-      setLgpdRow(null);
-      void invalidar();
-    },
-    onError: (e: Error) => toast.error(`Não foi possível desativar: ${e.message}`),
-  });
-
-  const reativarMutation = useMutation({
-    mutationFn: (profileId: string) => reativarUsuario(profileId),
-    onSuccess: () => {
-      toast.success("Acesso do usuário restaurado.");
-      void invalidar();
-    },
-    onError: (e: Error) => toast.error(`Não foi possível reativar: ${e.message}`),
-  });
-
-  const planoMutation = useMutation({
-    mutationFn: ({
-      empresaId,
-      plano,
-      modalidade,
-      dataCustom,
-    }: {
-      empresaId: string;
-      plano: Plano;
-      modalidade: Modalidade;
-      dataCustom?: Date;
-    }) => gerenciarPlano(empresaId, plano, modalidade, dataCustom),
-    onSuccess: (_d, vars) => {
-      const labels: Record<Modalidade, string> = {
-        trial: "trial",
-        mensal: "mensal",
-        anual: "anual",
-        permanente: "permanente",
-      };
-      toast.success(
-        `Plano ${vars.plano} (${labels[vars.modalidade]}) configurado com sucesso.`,
-      );
-      setPlanoRow(null);
-      void invalidar();
-    },
-    onError: (e: Error) => toast.error(`Não foi possível alterar o plano: ${e.message}`),
-  });
 
   // ── Estados de guarda ──────────────────────────────────────────────────────
   if (sessao.estado === "carregando") {
@@ -217,49 +141,13 @@ function AdminPage() {
         {dashboard.data && (
           <>
             <KpiCards kpis={dashboard.data.kpis} />
-            <EmpresasTable
+            <ClientsManagementTable
               rows={dashboard.data.rows}
               categorias={dashboard.data.categorias}
-              onEstenderTrial={setTrialRow}
-              onGerenciarPlano={setPlanoRow}
-              onDesativar={setLgpdRow}
-              onReativar={(row) => reativarMutation.mutate(row.profile.id)}
             />
           </>
         )}
       </div>
-
-      <TrialDialog
-        row={trialRow}
-        saving={trialMutation.isPending}
-        onClose={() => setTrialRow(null)}
-        onConfirm={(data) =>
-          trialRow?.empresa &&
-          trialMutation.mutate({ empresaId: trialRow.empresa.id, data })
-        }
-      />
-      <LgpdDialog
-        row={lgpdRow}
-        saving={lgpdMutation.isPending}
-        onClose={() => setLgpdRow(null)}
-        onConfirm={(motivo) =>
-          lgpdRow && lgpdMutation.mutate({ profileId: lgpdRow.profile.id, motivo })
-        }
-      />
-      <PlanoDialog
-        row={planoRow}
-        saving={planoMutation.isPending}
-        onClose={() => setPlanoRow(null)}
-        onConfirm={(plano, modalidade, dataCustom) =>
-          planoRow?.empresa &&
-          planoMutation.mutate({
-            empresaId: planoRow.empresa.id,
-            plano,
-            modalidade,
-            dataCustom,
-          })
-        }
-      />
     </AdminShell>
   );
 }

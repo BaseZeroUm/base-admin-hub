@@ -18,10 +18,13 @@ function Pill({ className, children }: { className?: string; children: React.Rea
 // ── Segmento ──────────────────────────────────────────────────────────────────
 
 const SEGMENTO_ESTILOS: Record<string, string> = {
-  reciclagem: "border-success/25 bg-success/10 text-success",
-  adega: "border-chart-5/30 bg-chart-5/10 text-chart-5",
-  mercado: "border-chart-4/30 bg-chart-4/10 text-warning-foreground",
-  transporte: "border-chart-3/30 bg-chart-3/10 text-chart-3",
+  reciclagem: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  adega: "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  mercado: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  transporte: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  varejo: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  servicos: "border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  industria: "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400",
 };
 
 export function SegmentoBadge({ categoria }: { categoria: string | null }) {
