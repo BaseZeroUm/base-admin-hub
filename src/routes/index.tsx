@@ -91,7 +91,7 @@ function AdminPage() {
           de administrador no painel Base 01. Solicite a liberação ao administrador master da
           plataforma.
         </p>
-        <Button className="mt-6 rounded-xl" onClick={() => void sairAdmin()}>
+        <Button className="mt-6 rounded-xl" onClick={() => void sairAdmin(queryClient)}>
           Desconectar
         </Button>
       </TelaCentral>
@@ -100,7 +100,7 @@ function AdminPage() {
 
   // ── Conteúdo principal ─────────────────────────────────────────────────────
   return (
-    <AdminShell email={sessao.email} onSignOut={() => void sairAdmin()}>
+    <AdminShell email={sessao.email} onSignOut={() => void sairAdmin(queryClient)}>
       <div className="mx-auto max-w-[1400px] space-y-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>

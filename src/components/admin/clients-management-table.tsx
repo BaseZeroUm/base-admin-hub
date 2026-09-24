@@ -55,6 +55,7 @@ import {
   type Modalidade,
   type Plano,
 } from "@/lib/admin-data";
+import { sanitizarMensagemErro } from "@/lib/tratamento-erro";
 
 export function ClientsManagementTable({
   rows,
@@ -85,7 +86,8 @@ export function ClientsManagementTable({
       setTrialRow(null);
       void invalidar();
     },
-    onError: (e: Error) => toast.error(`Não foi possível estender o trial: ${e.message}`),
+    onError: (e: Error) =>
+      toast.error(`Não foi possível estender o trial: ${sanitizarMensagemErro(e)}`),
   });
 
   const planoMutation = useMutation({
@@ -113,7 +115,8 @@ export function ClientsManagementTable({
       setPlanoRow(null);
       void invalidar();
     },
-    onError: (e: Error) => toast.error(`Não foi possível alterar o plano: ${e.message}`),
+    onError: (e: Error) =>
+      toast.error(`Não foi possível alterar o plano: ${sanitizarMensagemErro(e)}`),
   });
 
   const segmentoMutation = useMutation({
@@ -126,7 +129,8 @@ export function ClientsManagementTable({
       setSegmentoRow(null);
       void invalidar();
     },
-    onError: (e: Error) => toast.error(`Não foi possível alterar o segmento: ${e.message}`),
+    onError: (e: Error) =>
+      toast.error(`Não foi possível alterar o segmento: ${sanitizarMensagemErro(e)}`),
   });
 
   const lgpdMutation = useMutation({
@@ -137,7 +141,8 @@ export function ClientsManagementTable({
       setLgpdRow(null);
       void invalidar();
     },
-    onError: (e: Error) => toast.error(`Não foi possível desativar: ${e.message}`),
+    onError: (e: Error) =>
+      toast.error(`Não foi possível desativar: ${sanitizarMensagemErro(e)}`),
   });
 
   const reativarMutation = useMutation({
@@ -146,7 +151,8 @@ export function ClientsManagementTable({
       toast.success("Acesso do usuário restaurado com sucesso.");
       void invalidar();
     },
-    onError: (e: Error) => toast.error(`Não foi possível reativar: ${e.message}`),
+    onError: (e: Error) =>
+      toast.error(`Não foi possível reativar: ${sanitizarMensagemErro(e)}`),
   });
 
   // ── Filtros ────────────────────────────────────────────────────────────────
