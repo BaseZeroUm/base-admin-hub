@@ -43,20 +43,21 @@ export function useSessaoAdmin() {
         return;
       }
 
-      const [rolesRes, profileRes] = await Promise.all([
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", data.user.id)
-          .eq("role", "admin"),
+      const [rpcRes, profileRes] = await Promise.all([
+        supabase.rpc("is_master_admin"),
         supabase
           .from("profiles")
-          .select("id, ativo, desativado_em, empresa_id, empresas(categoria, ativa)")
+          .select("id, ativo, desativado_em")
           .eq("id", data.user.id)
           .maybeSingle(),
       ]);
 
-      if (cancelado) return;
+      if (rpcRes.error) {
+        console.error("[useSessaoAdmin] Erro em is_master_admin:", rpcRes.error);
+      }
+      if (profileRes.error) {
+        console.error("[useSessaoAdmin] Erro em profiles:", profileRes.error);
+      }
 
       // Validação de conta ativa
       if (profileRes.data?.ativo === false || profileRes.data?.desativado_em) {
@@ -66,15 +67,7 @@ export function useSessaoAdmin() {
       }
 
       const email = data.user.email ?? null;
-      const hasAdminRole = Boolean(rolesRes.data && rolesRes.data.length > 0);
-      const empresa = profileRes.data?.empresas as { categoria?: string | null; ativa?: boolean } | null;
-      if (empresa?.ativa === false) {
-        await supabase.auth.signOut({ scope: "global" });
-        window.location.href = AUTH_URL;
-        return;
-      }
-
-      const isMasterAdmin = hasAdminRole && empresa?.categoria === "admin";
+      const isMasterAdmin = Boolean(rpcRes.data);
 
       setSessao(
         isMasterAdmin ? { estado: "admin", email } : { estado: "sem_admin", email },
