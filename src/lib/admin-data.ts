@@ -171,8 +171,14 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     if (dias > 0) mediaPorUsuario.set(userId, soma / dias);
   }
 
-  const rows: AdminRow[] = profiles.map((profile) => {
-    const empresa = profile.empresa_id ? empresasById.get(profile.empresa_id) ?? null : null;
+  // Filtra apenas perfis vinculados a empresas existentes e ativas/cadastradas no banco de dados.
+  // Perfis cuja empresa foi excluída no banco (empresa_id nulo ou inexistente) são ignorados.
+  const perfisValidos = profiles.filter(
+    (profile) => profile.empresa_id && empresasById.has(profile.empresa_id),
+  );
+
+  const rows: AdminRow[] = perfisValidos.map((profile) => {
+    const empresa = empresasById.get(profile.empresa_id!) ?? null;
     const permanente = isPlanoPermanente(empresa);
     const dias = permanente ? null : diasAte(empresa?.trial_ate ?? null);
     const trialExpirado =
